@@ -1,6 +1,6 @@
 package view
 
-import Piano
+import PianoAudioStreamer
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -18,7 +18,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.input.key.onKeyEvent
 import org.jetbrains.compose.ui.tooling.preview.Preview
 
-class PianoApp(private val piano: Piano) {
+class PianoApp(private val pianoAudioStreamer: PianoAudioStreamer) {
     private val text = mutableStateOf(getNoteText())
     private val octaveValue = mutableStateOf(getOctaveText())
 
@@ -32,7 +32,7 @@ class PianoApp(private val piano: Piano) {
         MaterialTheme {
             Column(
                 Modifier.fillMaxWidth().onKeyEvent {
-                    piano.handleKeyEvent(it)
+                    pianoAudioStreamer.piano.handleKeyEvent(it)
                     updateText()
                     false
                 }.focusRequester(requester).focusable(),
@@ -52,7 +52,7 @@ class PianoApp(private val piano: Piano) {
         octaveValue.value = getOctaveText()
     }
 
-    private fun getOctaveText() = "Octave: ${piano.octave}"
+    private fun getOctaveText() = "Octave: ${pianoAudioStreamer.piano.octave}"
 
-    private fun getNoteText() = "Notes: [${piano.getNotesPressed().joinToString("  ")}]"
+    private fun getNoteText() = "Notes: [${pianoAudioStreamer.getNotesPressed().joinToString("  ")}]"
 }

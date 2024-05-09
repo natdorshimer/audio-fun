@@ -1,5 +1,3 @@
-import java.util.LinkedList
-import java.util.Queue
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
 import javax.sound.sampled.AudioFormat
@@ -8,13 +6,11 @@ import javax.sound.sampled.DataLine
 import javax.sound.sampled.SourceDataLine
 
 class AudioStreamingOutput(
-    val audioFormat: AudioFormat,
-    val bufferSize: Int = 4096
+    audioFormat: AudioFormat
 ) {
-    val info = DataLine.Info(SourceDataLine::class.java, audioFormat)
-    val sourceDataLine = AudioSystem.getLine(info) as SourceDataLine
-    val buffers: LinkedBlockingQueue<ByteArray> = LinkedBlockingQueue()
-    val nullByteArray = ByteArray(bufferSize){ 0 }
+    private val info = DataLine.Info(SourceDataLine::class.java, audioFormat)
+    private val sourceDataLine = AudioSystem.getLine(info) as SourceDataLine
+    private val buffers: LinkedBlockingQueue<ByteArray> = LinkedBlockingQueue()
 
     init {
         sourceDataLine.open(audioFormat)
@@ -24,7 +20,6 @@ class AudioStreamingOutput(
     }
 
     fun close() {
-
         sourceDataLine.flush()
         sourceDataLine.close()
         println("Source line Closed")
@@ -35,7 +30,7 @@ class AudioStreamingOutput(
 
     private lateinit var thread: StoppableThread
 
-    fun run() {
+    fun start() {
         thread = StoppableThread {
             buffers.poll(100L, TimeUnit.MILLISECONDS)?.let {
                 println(buffers.size + 1)

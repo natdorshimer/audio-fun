@@ -7,14 +7,14 @@ import view.PianoApp
 
 
 fun main() = application {
-    val piano = Piano()
-    val pianoApp =  PianoApp(piano)
+    val pianoAudioStreamer = PianoAudioStreamer()
+    val pianoApp =  PianoApp(pianoAudioStreamer)
 
-    piano.start()
+    pianoAudioStreamer.start()
     val windowState = rememberWindowState(size = DpSize(Dp(400.0F), Dp(200.0F)))
 
     Window(
-        onCloseRequest = { piano.close(); exitApplication();  },
+        onCloseRequest = { pianoAudioStreamer.close(); exitApplication();  },
         title = "AudioFun",
         state = windowState
     ) {
