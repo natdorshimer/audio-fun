@@ -12,7 +12,7 @@ class PianoAudioStreamer(
     private val channels = 1
     private val format = AudioFormat(sampleRate.toFloat(), bits, channels, signed, bigEndian)
 
-    private val bufferSize = 4096
+    private val bufferSize = 512
 
     private val output = AudioStreamingOutput(format)
 
@@ -25,9 +25,11 @@ class PianoAudioStreamer(
     private lateinit var writingThread: StoppableThread
 
     fun start() {
+        output.start()
+
         var startTime = System.currentTimeMillis()
         writingThread = StoppableThread {
-            if (System.currentTimeMillis() - startTime > timeToWaitMs && piano.notesPressed.isNotEmpty()) {
+            if (System.currentTimeMillis() - startTime > timeToWaitMs && (piano.notesPressed.isNotEmpty() || previousNotes.isNotEmpty())) {
                 startTime = System.currentTimeMillis()
                 val samples = createSamplesFromCurrentlyPressedNotes()
                 val outputBytes = transformFloatArrayToByteArray(samples)
@@ -35,7 +37,6 @@ class PianoAudioStreamer(
             }
         }
 
-        output.start()
         writingThread.start()
     }
 
@@ -68,27 +69,67 @@ class PianoAudioStreamer(
 
     private val previousNotes = mutableSetOf<Note>()
 
+    class NoteWithData(
+        val note: Note,
+        var iterations: Int,
+        var isIncreasing: Boolean,
+        var isDecreasing: Boolean
+    )
+
     private fun createSamplesFromCurrentlyPressedNotes(): FloatArray {
         val numOfSamples = bufferSize / bytes
         val notesToGraduallyIncrease = mutableSetOf<Note>()
+        val notesToGraduallyDecrease = mutableSetOf<Note>()
 
-        val gradualIncreaseWithTime = { i: Int ->
-            val time = i / sampleRate * 5000
-            (1 - Math.E.pow(-time)).also{ println(it) }
+        val linearIncreaseWithTime = { i: Int ->
+            i / numOfSamples.toDouble()
         }
+
+        val linearDecreaseWithTime = { i: Int ->
+            1 - i / numOfSamples.toDouble()
+        }
+
+        piano.notesPressed.forEach {
+            if (it !in previousNotes) {
+                notesToGraduallyIncrease.add(it)
+            }
+        }
+
+        previousNotes.forEach {
+            if (it !in piano.notesPressed) {
+                notesToGraduallyDecrease.add(it)
+            }
+        }
+
+        val allNotes = mutableSetOf<Note>()
+        allNotes.addAll(piano.notesPressed)
+        allNotes.addAll(notesToGraduallyDecrease)
 
         previousNotes.clear()
         previousNotes.addAll(piano.notesPressed)
 
         val samples = FloatArray(numOfSamples)
 
+        if (previousNotes.isEmpty()) {
+            start = 0
+        }
+
         for (i in 0 until numOfSamples) {
             val seconds = start++ / sampleRate
-            val sample = piano.notesPressed.sumOf {
-                val modifier = if (it in notesToGraduallyIncrease) {
-                    gradualIncreaseWithTime(i)
-                } else {
-                    1.0
+            val sample = allNotes.sumOf {
+                val modifier = when (it) {
+                    in notesToGraduallyIncrease -> {
+                        println("Gradual increase $it")
+                        linearIncreaseWithTime(i)
+                    }
+                    in notesToGraduallyDecrease -> {
+                        println("Gradual decrease $it")
+                        linearDecreaseWithTime(i)
+                    }
+                    else -> {
+//                        println("Not gradually increasing $it")
+                        1.0
+                    }
                 }
                 keyAmplitude * modifier * cos(2.0 * Math.PI * it.getFrequency(piano.octave) * seconds)
             }
