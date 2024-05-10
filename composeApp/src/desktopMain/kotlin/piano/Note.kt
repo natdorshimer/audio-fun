@@ -1,3 +1,5 @@
+package piano
+
 import kotlin.math.pow
 
 class Note(
@@ -17,15 +19,23 @@ class Note(
         return 2.0.pow((noteValue / 12.0) + octave) * baseFrequency
     }
 
-
     override fun toString(): String {
         return "$note.$relativeOctave"
     }
 }
 
+data class NoteData(
+    var isNotPressed: Boolean,
+    var iterationsWhilePressed: Int = 0,
+    var iterationsWhileNotPressed: Int = 0,
+) {
+    fun increaseIterationsWhilePressedOrClamp(maxValue: Int) {
+        iterationsWhilePressed = (iterationsWhilePressed + 1).coerceAtMost(maxValue)
+    }
+}
 
-const val baseFrequency = 16.35 // C0
-val noteMappings = mapOf(
+private const val baseFrequency = 16.35 // C0
+private val noteMappings = mapOf(
     "C" to 0,
     "C#" to 1,
     "Db" to 1,
@@ -44,10 +54,4 @@ val noteMappings = mapOf(
     "A#" to 10,
     "Bb" to 10,
     "B" to 11
-)
-
-data class NoteData(
-    var isDecreasing: Boolean,
-    var increasingIterations: Int = 0,
-    var decreasingIterations: Int = 0,
 )

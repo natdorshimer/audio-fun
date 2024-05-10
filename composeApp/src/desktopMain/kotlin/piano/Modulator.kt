@@ -1,3 +1,5 @@
+package piano
+
 import kotlin.math.pow
 
 interface NoteModulator {
@@ -10,10 +12,10 @@ class ExponentialModulator(
     val numOfSamples: Int
 ) {
     fun modulate(index: Int, noteData: NoteData): Double {
-        return if (noteData.isDecreasing) {
-            exponentialDecreaseWithTime(index, noteData.decreasingIterations)
-        } else if (noteData.increasingIterations < maxIncreasingIterations) {
-            exponentialIncreaseWithTime(index, noteData.increasingIterations)
+        return if (noteData.isNotPressed) {
+            exponentialDecreaseWithTime(index, noteData.iterationsWhileNotPressed)
+        } else if (noteData.iterationsWhilePressed < maxIncreasingIterations) {
+            exponentialIncreaseWithTime(index, noteData.iterationsWhilePressed)
         } else {
             1.0
         }
@@ -38,10 +40,10 @@ class LinearModulator(
     private val numOfSamples: Int
 ): NoteModulator {
     override fun modulate(index: Int, noteData: NoteData): Double {
-        return if (noteData.isDecreasing) {
-            linearDecreaseWithTime(index, noteData.decreasingIterations)
-        } else if (noteData.increasingIterations < maxIncreasingIterations) {
-            linearIncreaseWithTime(index, noteData.increasingIterations)
+        return if (noteData.isNotPressed) {
+            linearDecreaseWithTime(index, noteData.iterationsWhileNotPressed)
+        } else if (noteData.iterationsWhilePressed < maxIncreasingIterations) {
+            linearIncreaseWithTime(index, noteData.iterationsWhilePressed)
         } else {
             1.0
         }
