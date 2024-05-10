@@ -1,8 +1,15 @@
 package piano
 
-import StoppableThread
 import audio.AudioSettings
 import audio.AudioStreamingOutput
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlin.math.cos
 
 
@@ -32,26 +39,27 @@ class PianoAudioStreamer(
     // This helps the sound remain continuous
     private var start = 0
 
-    private lateinit var writingThread: StoppableThread
+    private lateinit var writingJob: Job
 
-    fun start() {
+    suspend fun start() = coroutineScope {
         audioStreamingOutput.start()
 
         var startTime = System.currentTimeMillis()
-        writingThread = StoppableThread {
-            val shouldUpdate = System.currentTimeMillis() - startTime > timeToWaitMs
-            val notesToBePlayed = piano.notesPressed.isNotEmpty() || activeNotes.isNotEmpty()
 
-            if (shouldUpdate && notesToBePlayed) {
-                startTime = System.currentTimeMillis()
-                updateActiveNotes()
+        writingJob = launch(Dispatchers.Default, start = CoroutineStart.DEFAULT) {
+            while (isActive) {
+                val shouldUpdate = System.currentTimeMillis() - startTime > timeToWaitMs
+                val notesToBePlayed = piano.notesPressed.isNotEmpty() || activeNotes.isNotEmpty()
 
-                val samples = createSamplesFromActiveNotes()
-                audioStreamingOutput.write(samples)
+                if (shouldUpdate && notesToBePlayed) {
+                    startTime = System.currentTimeMillis()
+                    updateActiveNotes()
+
+                    val samples = createSamplesFromActiveNotes()
+                    audioStreamingOutput.write(samples)
+                }
             }
         }
-
-        writingThread.start()
     }
 
     private fun createSamplesFromActiveNotes(): FloatArray {
@@ -118,12 +126,12 @@ class PianoAudioStreamer(
         }
     }
 
-    fun close() {
+    fun close() = runBlocking {
         println("Closing piano")
 
         audioStreamingOutput.close()
 
-        writingThread.stop()
+        writingJob.cancelAndJoin()
 
         println("Writing thread closed")
     }
