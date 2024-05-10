@@ -20,7 +20,7 @@ class PianoAudioStreamer(
 
     // If this isn't synced up with the buffer size, too much will enter the queue and it won't be in real time
     // If the value is too high, the sound will be choppy
-    private val timeToWaitMs = ((bufferSize / bytes) / sampleRate * 1000).toInt() - 2
+    private val timeToWaitMs = ((bufferSize / bytes) / sampleRate * 1000).toInt() - 1
 
     private lateinit var writingThread: StoppableThread
 
@@ -84,7 +84,6 @@ class PianoAudioStreamer(
     private fun createSamplesFromCurrentlyPressedNotes(): FloatArray {
         updateActiveNotes()
         val samples = FloatArray(numOfSamplesInBuffer)
-
 
         if (activeNotes.isEmpty()) {
             start = 0
