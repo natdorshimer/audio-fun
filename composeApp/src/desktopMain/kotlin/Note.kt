@@ -45,3 +45,9 @@ val noteMappings = mapOf(
     "Bb" to 10,
     "B" to 11
 )
+
+data class NoteData(
+    var isDecreasing: Boolean,
+    var increasingIterations: Int = 0,
+    var decreasingIterations: Int = 0,
+)

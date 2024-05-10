@@ -12,7 +12,7 @@ class PianoAudioStreamer(
     private val channels = 1
     private val format = AudioFormat(sampleRate.toFloat(), bits, channels, signed, bigEndian)
 
-    private val bufferSize = 512
+    private val bufferSize = 1024
 
     private val output = AudioStreamingOutput(format)
 
@@ -24,12 +24,13 @@ class PianoAudioStreamer(
 
     private lateinit var writingThread: StoppableThread
 
+
     fun start() {
         output.start()
 
         var startTime = System.currentTimeMillis()
         writingThread = StoppableThread {
-            if (System.currentTimeMillis() - startTime > timeToWaitMs && (piano.notesPressed.isNotEmpty() || previousNotes.isNotEmpty())) {
+            if (System.currentTimeMillis() - startTime > timeToWaitMs && (piano.notesPressed.isNotEmpty() || activeNotes.isNotEmpty())) {
                 startTime = System.currentTimeMillis()
                 val samples = createSamplesFromCurrentlyPressedNotes()
                 val outputBytes = transformFloatArrayToByteArray(samples)
@@ -67,76 +68,68 @@ class PianoAudioStreamer(
 
     private val keyAmplitude = 0.2
 
-    private val previousNotes = mutableSetOf<Note>()
 
-    class NoteWithData(
-        val note: Note,
-        var iterations: Int,
-        var isIncreasing: Boolean,
-        var isDecreasing: Boolean
-    )
+    private val activeNotes: MutableMap<Note, NoteData> = mutableMapOf()
+
+
+    private val maxIncreasingIterations = 1
+    private val maxDecreasingIterations = 1
+
+    private val numOfSamplesInBuffer = bufferSize / bytes
+
+    private val linearModulator = LinearModulator(maxIncreasingIterations, maxDecreasingIterations, numOfSamplesInBuffer)
+//    val exponentialModulator = ExponentialModulator(maxIncreasingIterations, maxDecreasingIterations, numOfSamples)
+
 
     private fun createSamplesFromCurrentlyPressedNotes(): FloatArray {
-        val numOfSamples = bufferSize / bytes
-        val notesToGraduallyIncrease = mutableSetOf<Note>()
-        val notesToGraduallyDecrease = mutableSetOf<Note>()
+        updateActiveNotes()
+        val samples = FloatArray(numOfSamplesInBuffer)
 
-        val linearIncreaseWithTime = { i: Int ->
-            i / numOfSamples.toDouble()
-        }
 
-        val linearDecreaseWithTime = { i: Int ->
-            1 - i / numOfSamples.toDouble()
-        }
-
-        piano.notesPressed.forEach {
-            if (it !in previousNotes) {
-                notesToGraduallyIncrease.add(it)
-            }
-        }
-
-        previousNotes.forEach {
-            if (it !in piano.notesPressed) {
-                notesToGraduallyDecrease.add(it)
-            }
-        }
-
-        val allNotes = mutableSetOf<Note>()
-        allNotes.addAll(piano.notesPressed)
-        allNotes.addAll(notesToGraduallyDecrease)
-
-        previousNotes.clear()
-        previousNotes.addAll(piano.notesPressed)
-
-        val samples = FloatArray(numOfSamples)
-
-        if (previousNotes.isEmpty()) {
+        if (activeNotes.isEmpty()) {
             start = 0
+            return samples
         }
 
-        for (i in 0 until numOfSamples) {
+        for (i in 0 until numOfSamplesInBuffer) {
             val seconds = start++ / sampleRate
-            val sample = allNotes.sumOf {
-                val modifier = when (it) {
-                    in notesToGraduallyIncrease -> {
-                        println("Gradual increase $it")
-                        linearIncreaseWithTime(i)
-                    }
-                    in notesToGraduallyDecrease -> {
-                        println("Gradual decrease $it")
-                        linearDecreaseWithTime(i)
-                    }
-                    else -> {
-//                        println("Not gradually increasing $it")
-                        1.0
-                    }
-                }
-                keyAmplitude * modifier * cos(2.0 * Math.PI * it.getFrequency(piano.octave) * seconds)
+            val sample = activeNotes.entries.sumOf { (note, noteData) ->
+                val modifier = linearModulator.modulate(i, noteData)
+                keyAmplitude * modifier * cos(2.0 * Math.PI * note.getFrequency(piano.octave) * seconds)
             }
             samples[i] = sample.toFloat()
         }
 
         return samples
+    }
+
+    private fun updateActiveNotes() {
+        piano.notesPressed.forEach {
+            if (it !in activeNotes) {
+                activeNotes[it] = NoteData(false)
+            } else {
+                if (activeNotes[it]!!.isDecreasing) {
+                    activeNotes[it]!!.decreasingIterations = 0
+                    activeNotes[it]!!.isDecreasing = false
+                }
+                val iterationValue = activeNotes[it]!!.increasingIterations + 1
+                activeNotes[it]!!.increasingIterations = iterationValue.coerceAtMost(maxIncreasingIterations)
+            }
+        }
+
+        val iterator = activeNotes.iterator()
+        while (iterator.hasNext()) {
+            val (note, noteData) = iterator.next()
+            if (note !in piano.notesPressed) {
+                if (noteData.isDecreasing) {
+                    noteData.decreasingIterations++
+                }
+                noteData.isDecreasing = true
+                if (noteData.decreasingIterations >= maxDecreasingIterations) {
+                    iterator.remove()
+                }
+            }
+        }
     }
 
     fun getNotesPressed(): List<String> {

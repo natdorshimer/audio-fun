@@ -3,9 +3,10 @@ import androidx.compose.ui.input.key.KeyEvent
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.type
+import java.util.Collections
 
 class Piano {
-    val notesPressed: MutableSet<Note> = mutableSetOf()
+    val notesPressed: MutableSet<Note> = Collections.synchronizedSet(mutableSetOf())
     var octave = 3
         private set
 
