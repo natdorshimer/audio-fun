@@ -4,9 +4,9 @@ import audio.AudioSettings
 import audio.AudioStreamingOutput
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -39,14 +39,14 @@ class PianoAudioStreamer(
     // This helps the sound remain continuous
     private var start = 0
 
-    private lateinit var writingThread: Job
+    private lateinit var writingJob: Job
 
-    fun start() {
+    suspend fun start() = coroutineScope {
         audioStreamingOutput.start()
 
         var startTime = System.currentTimeMillis()
 
-        writingThread = GlobalScope.launch(Dispatchers.Default, CoroutineStart.DEFAULT) {
+        writingJob = launch(Dispatchers.Default, start = CoroutineStart.DEFAULT) {
             while (isActive) {
                 val shouldUpdate = System.currentTimeMillis() - startTime > timeToWaitMs
                 val notesToBePlayed = piano.notesPressed.isNotEmpty() || activeNotes.isNotEmpty()
@@ -131,7 +131,7 @@ class PianoAudioStreamer(
 
         audioStreamingOutput.close()
 
-        writingThread.cancelAndJoin()
+        writingJob.cancelAndJoin()
 
         println("Writing thread closed")
     }

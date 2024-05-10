@@ -1,3 +1,4 @@
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.window.Window
@@ -22,7 +23,9 @@ fun main() = application {
     val piano = Piano()
     val pianoAudioStreamer = PianoAudioStreamer(piano, audioSettings, audioStreamingOutput)
 
-    pianoAudioStreamer.start()
+    LaunchedEffect(Unit) {
+        pianoAudioStreamer.start()
+    }
 
     val pianoApp =  PianoApp(piano)
     val windowState = rememberWindowState(size = DpSize(Dp(400.0F), Dp(200.0F)))
